@@ -1,0 +1,35 @@
+# ============================================================================
+# Run the Streamlit frontend as a systemd service.
+# ============================================================================
+[Unit]
+Description=Company AI Assistant - Streamlit frontend
+After=network.target company-ai-backend.service
+Wants=company-ai-backend.service
+
+[Service]
+Type=exec
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/company-ai-assistant/frontend
+
+EnvironmentFile=/home/ubuntu/company-ai-assistant/frontend/.env
+
+ExecStart=/home/ubuntu/company-ai-assistant/frontend/.venv/bin/streamlit run \
+    streamlit_app.py \
+    --server.address=127.0.0.1 \
+    --server.port=8501 \
+    --server.headless=true \
+    --browser.gatherUsageStats=false
+
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
+StartLimitIntervalSec=60
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

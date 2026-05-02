@@ -1,0 +1,155 @@
+# ============================================================================
+# Company AI Assistant — .gitignore
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Secrets & environment files — NEVER commit these
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+.aws/
+credentials
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+develop-eggs/
+.installed.cfg
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Type checkers / linters / test caches
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ---------------------------------------------------------------------------
+# Project data — local artifacts that shouldn't ship
+# ---------------------------------------------------------------------------
+
+# FAISS indexes (per-company; rebuilt from S3 + Postgres in prod)
+backend/data/
+backend/data/faiss/
+
+# Local SQLite if anyone uses it for quick tests
+*.sqlite
+*.sqlite3
+*.db
+
+# Uploaded files left over from local testing
+backend/uploads/
+backend/tmp/
+
+# Logs
+*.log
+logs/
+backend/logs/
+frontend/logs/
+
+# Sentence-transformers model cache (huge; downloaded on first run)
+.cache/
+~/.cache/huggingface/
+
+# ---------------------------------------------------------------------------
+# Docker
+# ---------------------------------------------------------------------------
+# We DO commit Dockerfiles + compose files. We DON'T commit override files
+# that developers customize locally.
+docker-compose.override.yml
+docker-compose.local.yml
+
+# ---------------------------------------------------------------------------
+# Streamlit
+# ---------------------------------------------------------------------------
+.streamlit/secrets.toml
+# .streamlit/config.toml is fine to commit if you have project-wide settings
+
+# ---------------------------------------------------------------------------
+# Alembic
+# ---------------------------------------------------------------------------
+# Versions ARE committed (they're the migration history).
+# Nothing to ignore here — listed for clarity.
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+# Streamlit doesn't have node_modules, but if you ever add a JS toolchain:
+node_modules/
+.next/
+.nuxt/
+.cache/
+
+# ---------------------------------------------------------------------------
+# IDE / Editor
+# ---------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.spyderproject
+.spyproject
+.ropeproject
+*.sublime-project
+*.sublime-workspace
+
+# ---------------------------------------------------------------------------
+# OS
+# ---------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------------------
+# Jupyter (in case you experiment with notebooks)
+# ---------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ---------------------------------------------------------------------------
+# Misc
+# ---------------------------------------------------------------------------
+.direnv/
+.envrc
+*.tmp
+*.bak
+*.orig

@@ -1,0 +1,49 @@
+# ============================================================================
+# Run the FastAPI backend as a systemd service.
+#
+# Use this if you don't want Docker on EC2 (lighter-weight, slightly faster
+# Ollama access). Trade-off: you manage Python + deps yourself.
+#
+# Install:
+#   sudo cp infra/systemd/company-ai-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now company-ai-backend
+#
+# Logs:
+#   sudo journalctl -u company-ai-backend -f
+# ============================================================================
+[Unit]
+Description=Company AI Assistant - FastAPI backend
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=exec
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/company-ai-assistant/backend
+
+# Read .env from the working directory; uvicorn picks it up via pydantic-settings.
+EnvironmentFile=/home/ubuntu/company-ai-assistant/backend/.env
+
+ExecStart=/home/ubuntu/company-ai-assistant/backend/.venv/bin/uvicorn \
+    app.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 2
+
+# Auto-restart on crash, but don't loop forever if it's broken.
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
+StartLimitIntervalSec=60
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/home/ubuntu/company-ai-assistant/backend/data
+
+[Install]
+WantedBy=multi-user.target

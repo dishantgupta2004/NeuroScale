@@ -1,0 +1,74 @@
+# ============================================================================
+# Production overlay for docker-compose.yml.
+#
+# Differences from dev:
+#   - No `postgres` service (we use RDS — DATABASE_URL points there).
+#   - No bind mounts on backend/frontend code (we use what's baked into the image).
+#   - Backend/frontend only expose ports inside the docker network — only
+#     nginx is reachable from outside.
+#   - nginx terminates TLS and reverse-proxies to backend + frontend.
+#   - APP_ENV=production toggles the dev-only create_all() off.
+#
+# Usage on EC2:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Make sure these files exist on the EC2 box first:
+#   - /etc/letsencrypt/live/yourdomain/fullchain.pem  (use certbot)
+#   - /etc/letsencrypt/live/yourdomain/privkey.pem
+#   - infra/nginx/nginx.conf
+# ============================================================================
+services:
+  postgres:
+    # Disable: in production we use RDS.
+    profiles: ["never"]
+
+  ollama:
+    # Production keeps Ollama on the host (or in a separate container,
+    # but no public port).
+    ports: []
+
+  ollama-pull:
+    profiles: ["never"]   # done once; not needed on prod boots
+
+  backend:
+    # No code volume mount; use baked image.
+    volumes:
+      - faiss_data:/app/data/faiss
+    # No port exposure — nginx is the only public face.
+    ports: []
+    env_file:
+      - ../backend/.env.production
+    environment:
+      APP_ENV: production
+      OLLAMA_BASE_URL: http://ollama:11434
+      # DATABASE_URL must come from .env.production and point to RDS.
+    # Production: no --reload, multiple workers.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+
+  frontend:
+    volumes: []        # use baked image
+    ports: []
+    environment:
+      BACKEND_URL: http://backend:8000
+
+  # ------------------------------------------------------------------
+  # nginx reverse proxy (production-only)
+  # ------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Mount Let's Encrypt certs from the host. Path assumes certbot defaults.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

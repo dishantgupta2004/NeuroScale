@@ -1,0 +1,139 @@
+# ============================================================================
+# Local development stack.
+#
+# Brings up everything you need to run the full system on your laptop:
+#   - postgres   (the relational DB)
+#   - ollama     (local LLM for SENSITIVE tasks)
+#   - backend    (FastAPI on :8000)
+#   - frontend   (Streamlit on :8501)
+#
+# Usage:
+#   make dev               # build + run
+#   docker compose up      # equivalent
+#   docker compose logs -f backend
+#   docker compose down    # stop everything (preserves volumes)
+#   docker compose down -v # also wipes postgres + ollama data
+#
+# First run: ollama needs to download the model (~5GB for llama3.1:8b).
+# That happens in the `ollama-pull` one-shot service. Subsequent starts
+# skip it.
+# ============================================================================
+name: company-ai-assistant
+
+services:
+  # --------------------------------------------------------------------
+  # PostgreSQL
+  # --------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aiassistant
+    ports:
+      - "5432:5432"   # exposed for local psql / DBeaver access
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aiassistant"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # --------------------------------------------------------------------
+  # Ollama
+  # --------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Comment out this whole `deploy` block if you don't have an NVIDIA GPU
+    # OR if you don't have nvidia-container-toolkit installed. CPU works fine
+    # for llama3.1:8b — just slower.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # --------------------------------------------------------------------
+  # Ollama model puller — runs once, exits when the model is downloaded
+  # --------------------------------------------------------------------
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["sh", "-c"]
+    command:
+      - "ollama pull llama3.1:8b && echo 'Model ready'"
+    restart: "no"
+
+  # --------------------------------------------------------------------
+  # Backend (FastAPI)
+  # --------------------------------------------------------------------
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../backend/.env
+    environment:
+      # Override .env for inter-container networking. In compose, services
+      # reach each other by service name as DNS, NOT localhost.
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/aiassistant
+      OLLAMA_BASE_URL: http://ollama:11434
+      APP_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    volumes:
+      # Persist FAISS indexes across container restarts.
+      - faiss_data:/app/data/faiss
+      # Live-reload code in dev (mount the source over the baked-in copy).
+      - ../backend/app:/app/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # --------------------------------------------------------------------
+  # Frontend (Streamlit)
+  # --------------------------------------------------------------------
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_started
+    volumes:
+      - ../frontend:/app
+
+volumes:
+  postgres_data:
+  ollama_data:
+  faiss_data:

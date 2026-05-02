@@ -1,0 +1,37 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Local data
+data/faiss/
+*.sqlite
+*.db
+*.log
+
+# Env files (mounted at runtime, not baked in)
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Tests + docs not needed in image
+tests/
+docs/
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
